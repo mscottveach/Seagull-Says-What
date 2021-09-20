@@ -27,13 +27,8 @@ public class Manage_Spawn : MonoBehaviour
             theBoids[idx].transform.eulerAngles = new Vector3(0.0f,random_angle,0.0f);
         }
 
-
-//        holdObj.GetComponent<Boid>().leader = true;
-
-  //      for (idx = 0; idx < NUM_O)
     }
 
-    // Update is called once per frame
     void Update()
     {
         
