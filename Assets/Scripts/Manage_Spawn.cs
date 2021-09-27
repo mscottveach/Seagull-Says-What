@@ -6,11 +6,26 @@ public class Manage_Spawn : MonoBehaviour
 {
     // Start is called before the first frame update
 
+
+    public static Manage_Spawn Instance {get; private set;}
+
     public GameObject a_boid;
-    static private int NUM_OF_BOIDS = 100;
+    static private int NUM_OF_BOIDS = 200;
     static private int SPAWN_SQUARE_SIZE = 20;
     public GameObject[] theBoids;
     bool somethingToggled, alignmentOn, cohesionOn, avoidanceOn;
+
+
+
+    private void Awake() {
+        if (Instance == null) {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else {
+            Destroy(gameObject);  
+        }
+    }
 
     void Start()
     {
@@ -20,7 +35,7 @@ public class Manage_Spawn : MonoBehaviour
 
         for (int idx = 0; idx < NUM_OF_BOIDS; idx++) {
             int x = Random.Range(-SPAWN_SQUARE_SIZE,SPAWN_SQUARE_SIZE);
-            int y = 0;
+            int y = -8;
             int z = Random.Range(-SPAWN_SQUARE_SIZE,SPAWN_SQUARE_SIZE);
             theBoids[idx] = Instantiate(a_boid, new Vector3(x,y,z), Quaternion.identity);
         
@@ -31,11 +46,9 @@ public class Manage_Spawn : MonoBehaviour
 
 
         Debug.Log(Physics.queriesHitTriggers);
-
-
     }
 
-    void ToggleAlignment() {
+    public void ToggleAlignment() {
         if (alignmentOn) {
             alignmentOn = false;
         }
@@ -47,7 +60,7 @@ public class Manage_Spawn : MonoBehaviour
     
 
 
-    void ToggleCohesion() {
+    public void ToggleCohesion() {
         if (cohesionOn) {
             cohesionOn = false;
         }
@@ -58,15 +71,15 @@ public class Manage_Spawn : MonoBehaviour
     }
 
 
-    void ToggleAvoidancet() {
-    if (avoidanceOn) {
-        avoidanceOn = false;
+    public void ToggleAvoidance() {
+        if (avoidanceOn) {
+            avoidanceOn = false;
+        }
+        else {
+            avoidanceOn = true;
+        }
+        somethingToggled = true;
     }
-    else {
-        avoidanceOn = true;
-    }
-    somethingToggled = true;
-}
     
 
 

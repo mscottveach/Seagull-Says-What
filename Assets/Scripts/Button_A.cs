@@ -16,7 +16,18 @@ public class Button_A : MonoBehaviour
         
     }
 
-    public void OnButtonPress() {
-        Debug.Log("I love it when a plan comes together.");
+    public void AlignmentToggle() {
+        Debug.Log("Alignment was pressed.");
+        Manage_Spawn.Instance.ToggleAlignment();
+    }
+
+    public void CohesionToggle() {
+        Debug.Log("Cohesion Was pressed");
+        Manage_Spawn.Instance.ToggleCohesion();
+    }
+
+    public void AvoidanceToggle() {
+        Debug.Log("Avoidance was pressed.");
+        Manage_Spawn.Instance.ToggleAvoidance();
     }
 }

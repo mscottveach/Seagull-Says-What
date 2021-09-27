@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: -6301034832180244140}
   - component: {fileID: 5827956386873166105}
   - component: {fileID: 8744345415294395429}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: clay_pidgeon_6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -129,4 +129,3 @@ MonoBehaviour:
   speed: 0
   turn_speed: 0
   accumulatedTime: 0
-  turn_amount: {x: 0, y: 0, z: 0}
