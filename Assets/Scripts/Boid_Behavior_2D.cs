@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(BoxCollider))]
 public class Boid_Behavior_2D : MonoBehaviour
 {
 
@@ -23,41 +24,61 @@ public class Boid_Behavior_2D : MonoBehaviour
     Vector3 turn_amount;
     LayerMask just_boids;
     LayerMask just_env;
+    Vector3 last_position;
 
+    Collider boidCollider;
+    public Collider TheCollider{ get { return boidCollider;}}
 
     void Start()
     {
+
+        boidCollider = GetComponent<Collider>();
         speed = 10.0f;
         turn_speed = 180;
         accumulatedTime = 0;
 
-        avoidanceOn = true;
-        alignmentOn = true;
-        cohesionOn = true;
+        avoidanceOn = false;
+        alignmentOn = false;
+        cohesionOn = false;
         turning = false;
-        turn_amount = new Vector3(0,0,0);       
+        turn_amount = new Vector3(0,0,0);
+        last_position = transform.position;       
         rigidBody = GetComponent<Rigidbody>();
         viewCamera = Camera.main;
         avoidingWalls = false;
         reflectRotation = new Quaternion(0,0,0,0);
         just_boids = LayerMask.GetMask("a");
         just_env = LayerMask.GetMask("b");
+
     }
+
 
     // Update is called once per frame
     void Update()
     {
         //for future reference:
-        Vector3 mousePos = viewCamera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, viewCamera.transform.position.y));
+        //Vector3 mousePos = viewCamera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, viewCamera.transform.position.y));
             
     }
 
+    float DTR(float inDegrees) {
+        float answer = (inDegrees*Mathf.PI)/180.0f;
+        Debug.Log(answer);
+        return(answer);
+    }
 
 
     private void FixedUpdate() {
-        
+
+        Orient();
 
         colliderHits = Physics.OverlapSphere(transform.position,10.0f,just_boids);
+        List<Transform> context = new List<Transform>();
+        foreach (Collider c in colliderHits) {
+            if (c != this.TheCollider) {
+                context.Add(c.transform);
+            }
+        }
        
         if ((alignmentOn) && (!avoidingWalls)) {
             Align();
@@ -70,12 +91,23 @@ public class Boid_Behavior_2D : MonoBehaviour
         }
 
         
+
+
              
-      //  AvoidWalls();
+        AvoidWalls();
       //  RandomTurn();
      //   ExecutingTurn();
         Move();
 
+    }
+
+    void Orient() {
+        
+        Vector3 current_direction = transform.position - last_position;
+        last_position = transform.position;
+        Quaternion orientRotation = Quaternion.LookRotation(current_direction);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, orientRotation, turn_speed*Time.deltaTime);
+        
     }
 
 
@@ -102,12 +134,49 @@ public class Boid_Behavior_2D : MonoBehaviour
 
 
     void Avoid() {
+        Debug.Log("Avoiding!");
         RaycastHit hit;
+        Vector3 rot_five_degrees_CCW = Vector3.zero;
+        Vector3 rot_five_degrees_CW = Vector3.zero;
+        int count = 0;
         if (Physics.Raycast(transform.position, transform.forward, out hit, 10.0f, just_boids)) {
-            Vector3 new_direction = Vector3.Reflect(-1*hit.rigidbody.gameObject.transform.forward, transform.forward);
+            //Debug.DrawRay(transform.position, (hit.point - transform.position)*10.0f,Color.green,5);
+            rot_five_degrees_CCW = RotateFiveCCW(transform.forward);
+            rot_five_degrees_CW = transform.forward;
+            while (Physics.Raycast(transform.position, rot_five_degrees_CCW, out hit, 10.0f, just_boids)) {
+                count += 1;
+                rot_five_degrees_CW = RotateFiveCW(rot_five_degrees_CW);
+                if (!(Physics.Raycast(transform.position, rot_five_degrees_CW, out hit, 10.0f, just_boids))){
+                    break;
+                }
+                rot_five_degrees_CCW = RotateFiveCCW(rot_five_degrees_CCW);
+                if (count > 10) {
+                    break;
+                }
+            }
+
+            Vector3 new_direction = hit.point - transform.position;
+            Debug.Log(hit.point);
+            //Vector3 new_direction = Vector3.Reflect(-1*hit.rigidbody.gameObject.transform.forward, transform.forward);
             Quaternion new_rotation = Quaternion.LookRotation(new_direction);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, new_rotation, turn_speed * Time.deltaTime);
         }
+    }
+
+    Vector3 RotateFiveCCW(Vector3 inVector) {
+        Vector3 resVector = Vector3.zero;
+        resVector.x = inVector.x*Mathf.Cos(Mathf.Deg2Rad) - inVector.z*Mathf.Sin(Mathf.Deg2Rad);
+        resVector.z = inVector.x*Mathf.Sin(Mathf.Deg2Rad) + inVector.z*Mathf.Cos(Mathf.Deg2Rad);
+
+        return(resVector);
+    }
+
+    Vector3 RotateFiveCW(Vector3 inVector) {
+          Vector3 resVector = Vector3.zero;
+        resVector.x = inVector.x*Mathf.Cos(-1*Mathf.Deg2Rad) - inVector.z*Mathf.Sin(-1*Mathf.Deg2Rad);
+        resVector.z = inVector.x*Mathf.Sin(-1*Mathf.Deg2Rad) + inVector.z*Mathf.Cos(-1*Mathf.Deg2Rad);
+
+        return(resVector);      
     }
 
 
