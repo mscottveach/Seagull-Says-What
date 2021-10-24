@@ -12,7 +12,27 @@ public class Boid_Behavior_2D : MonoBehaviour
     public float speed;
     public float turn_speed;
     public float accumulatedTime;
-    private bool alignmentOn, cohesionOn, avoidanceOn;
+    
+    public float collisionRadiusMultiplier;
+    public float nearBoidRadius;
+    public float squareNearBoidRadius;
+    public float squareCollisionRadius;
+    public float cohereWeight;
+    public float alignWeight;
+    public float avoidWeight;
+    public float maxSpeed;
+    public float sqrMaxSpeed;
+
+    public Vector3 velocity;
+
+    Vector3 acceleration;
+    Vector3 cohereMove;
+    Vector3 alignMove;
+    Vector3 avoidMove;
+    public float[] behaviorWeights;
+    List<Transform> context;
+
+    private bool alignmentOn, avoidAndCohereOn;
     private Collider[] colliderHits;
 
     bool avoidingWalls;
@@ -26,6 +46,10 @@ public class Boid_Behavior_2D : MonoBehaviour
     LayerMask just_env;
     Vector3 last_position;
 
+
+    
+
+
     Collider boidCollider;
     public Collider TheCollider{ get { return boidCollider;}}
 
@@ -33,13 +57,27 @@ public class Boid_Behavior_2D : MonoBehaviour
     {
 
         boidCollider = GetComponent<Collider>();
-        speed = 10.0f;
+        speed = 5.0f;
+        maxSpeed = 10.0f;
         turn_speed = 180;
         accumulatedTime = 0;
+        collisionRadiusMultiplier = 0.5f;
+        nearBoidRadius = 10.0f;
+        squareNearBoidRadius = nearBoidRadius * nearBoidRadius;
+        squareCollisionRadius = squareNearBoidRadius * collisionRadiusMultiplier * collisionRadiusMultiplier;
+        sqrMaxSpeed = maxSpeed * maxSpeed;
 
-        avoidanceOn = false;
+        behaviorWeights = new float[3];
+
+        velocity = new Vector3(4,0,4);
+        //velocity = new Vector3(Random.Range(-5,5),0.0f,Random.Range(-5,5));
+        //velocity.Normalize();
+        // Debug.Log("Velocity");
+        // Debug.Log(velocity);
+        acceleration = new Vector3(0,0,0);
+
+        avoidAndCohereOn = true;
         alignmentOn = false;
-        cohesionOn = false;
         turning = false;
         turn_amount = new Vector3(0,0,0);
         last_position = transform.position;       
@@ -49,6 +87,12 @@ public class Boid_Behavior_2D : MonoBehaviour
         reflectRotation = new Quaternion(0,0,0,0);
         just_boids = LayerMask.GetMask("a");
         just_env = LayerMask.GetMask("b");
+        alignMove = new Vector3(0,0,0);
+        cohereMove = new Vector3(0,0,0);
+        avoidMove = new Vector3(0,0,0);
+
+        avoidAndCohereOn = true;
+        
 
     }
 
@@ -61,147 +105,86 @@ public class Boid_Behavior_2D : MonoBehaviour
             
     }
 
-    float DTR(float inDegrees) {
-        float answer = (inDegrees*Mathf.PI)/180.0f;
-        Debug.Log(answer);
-        return(answer);
-    }
-
 
     private void FixedUpdate() {
 
-        Orient();
+        //This figures out the direction the boid is moving in and points it in that direction.
 
-        colliderHits = Physics.OverlapSphere(transform.position,10.0f,just_boids);
-        List<Transform> context = new List<Transform>();
-        foreach (Collider c in colliderHits) {
-            if (c != this.TheCollider) {
-                context.Add(c.transform);
-            }
-        }
+
+        //This checks to see which boids are nearby and builds a list of their transforms in the list "context"
+        colliderHits = Physics.OverlapSphere(transform.position,nearBoidRadius,just_boids);
        
-        if ((alignmentOn) && (!avoidingWalls)) {
+        if (alignmentOn) {
             Align();
         }                                                                                                                                                                                                          
-        if (avoidanceOn) {
-            Avoid();
-        }
-        if (cohesionOn) {
-            Cohere();
+        if (avoidAndCohereOn) {
+        //    AvoidAndCohere(context);
         }
 
-        
-
-
-             
-        AvoidWalls();
-      //  RandomTurn();
-     //   ExecutingTurn();
         Move();
-
+        //Orient();
     }
 
     void Orient() {
         
         Vector3 current_direction = transform.position - last_position;
         last_position = transform.position;
-        Quaternion orientRotation = Quaternion.LookRotation(current_direction);
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, orientRotation, turn_speed*Time.deltaTime);
+
+        if (current_direction != Vector3.zero) {
+            Quaternion orientRotation = Quaternion.LookRotation(current_direction);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, orientRotation, turn_speed*Time.deltaTime);
+        }
         
     }
 
+    void AvoidAndCohere(List<Transform> context) {
+        avoidMove = new Vector3(0,0,0);
+        int avoidCount = 0;
 
+        cohereMove = new Vector3(0,0,0);
+        int cohereCount = 0;
+    
+        foreach (Transform t in context) {
+            Vector3 vectorToNeighbor = t.position - this.transform.position;
+            
+            if (vectorToNeighbor.sqrMagnitude < squareCollisionRadius) {
+                //AVOID
+                avoidMove += this.transform.position - t.position;
+                avoidCount += 1;
+            }
+            else {
+                //COHERE
+                cohereMove += t.position;
+                cohereCount += 1;
+            }
+        }
 
+        if (avoidCount > 0) {
+            avoidMove /= avoidCount;
+        }
+
+        if (cohereCount > 0) {
+            cohereMove /= cohereCount;
+            cohereMove = cohereMove - this.transform.position;
+        }
+    }
+
+    
     void Align() {
 
-        Vector3 averageDirection = new Vector3(0,0,0);
-        int num_of_nearby_boids = 0;
-        foreach (Collider a_collider in colliderHits) {
-            Rigidbody boid_rb = a_collider.GetComponent<Rigidbody>();
-            float dotProd = Vector3.Dot(transform.forward, boid_rb.transform.position - transform.position);
-            if (dotProd > 0) {
-                averageDirection += boid_rb.transform.forward;
-                num_of_nearby_boids += 1;
-            }
+        alignMove = new Vector3(0,0,0);
+        int alignCount = 0;
+
+        foreach (Collider c in colliderHits) {
+            alignMove += c.gameObject.GetComponent<Boid_Behavior_2D>().velocity;
+            alignCount += 1;
         }
-        averageDirection = averageDirection / num_of_nearby_boids;
-        if (averageDirection != new Vector3(0,0,0)) {
-            Quaternion alignRotation = Quaternion.LookRotation(averageDirection);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, alignRotation, turn_speed*Time.deltaTime);
-        }
-    }
 
-
-
-    void Avoid() {
-        Debug.Log("Avoiding!");
-        RaycastHit hit;
-        Vector3 rot_five_degrees_CCW = Vector3.zero;
-        Vector3 rot_five_degrees_CW = Vector3.zero;
-        int count = 0;
-        if (Physics.Raycast(transform.position, transform.forward, out hit, 10.0f, just_boids)) {
-            //Debug.DrawRay(transform.position, (hit.point - transform.position)*10.0f,Color.green,5);
-            rot_five_degrees_CCW = RotateFiveCCW(transform.forward);
-            rot_five_degrees_CW = transform.forward;
-            while (Physics.Raycast(transform.position, rot_five_degrees_CCW, out hit, 10.0f, just_boids)) {
-                count += 1;
-                rot_five_degrees_CW = RotateFiveCW(rot_five_degrees_CW);
-                if (!(Physics.Raycast(transform.position, rot_five_degrees_CW, out hit, 10.0f, just_boids))){
-                    break;
-                }
-                rot_five_degrees_CCW = RotateFiveCCW(rot_five_degrees_CCW);
-                if (count > 10) {
-                    break;
-                }
-            }
-
-            Vector3 new_direction = hit.point - transform.position;
-            Debug.Log(hit.point);
-            //Vector3 new_direction = Vector3.Reflect(-1*hit.rigidbody.gameObject.transform.forward, transform.forward);
-            Quaternion new_rotation = Quaternion.LookRotation(new_direction);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, new_rotation, turn_speed * Time.deltaTime);
-        }
-    }
-
-    Vector3 RotateFiveCCW(Vector3 inVector) {
-        Vector3 resVector = Vector3.zero;
-        resVector.x = inVector.x*Mathf.Cos(Mathf.Deg2Rad) - inVector.z*Mathf.Sin(Mathf.Deg2Rad);
-        resVector.z = inVector.x*Mathf.Sin(Mathf.Deg2Rad) + inVector.z*Mathf.Cos(Mathf.Deg2Rad);
-
-        return(resVector);
-    }
-
-    Vector3 RotateFiveCW(Vector3 inVector) {
-          Vector3 resVector = Vector3.zero;
-        resVector.x = inVector.x*Mathf.Cos(-1*Mathf.Deg2Rad) - inVector.z*Mathf.Sin(-1*Mathf.Deg2Rad);
-        resVector.z = inVector.x*Mathf.Sin(-1*Mathf.Deg2Rad) + inVector.z*Mathf.Cos(-1*Mathf.Deg2Rad);
-
-        return(resVector);      
-    }
-
-
-
-    void Cohere() {
-
-        Vector3 averagePosition = new Vector3(0,0,0);
-        int num_of_nearby_boids = 0;
-        foreach (Collider a_collider in colliderHits) {
-            Rigidbody boid_rb = a_collider.GetComponent<Rigidbody>();
-            float dotProd = Vector3.Dot(transform.forward, boid_rb.transform.position - transform.position);
-            if (dotProd > 0) {
-                averagePosition += boid_rb.transform.position;
-                num_of_nearby_boids += 1;
-            }
-        }
-        averagePosition = averagePosition / num_of_nearby_boids;
-        Vector3 new_direction = averagePosition - transform.position;
-        if (averagePosition != new Vector3(0,0,0)) {
-            Quaternion cohereRotation = Quaternion.LookRotation(new_direction);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, cohereRotation, turn_speed*Time.deltaTime);
+        if (alignCount > 0) {
+            alignMove /= alignCount;
         }
 
     }
-
 
     void AvoidWalls() {
         RaycastHit hit;
@@ -227,8 +210,6 @@ public class Boid_Behavior_2D : MonoBehaviour
         }
     }
 
-
-
     void RandomTurn() {
         accumulatedTime += Time.deltaTime;
         if (accumulatedTime > 1.5) {
@@ -240,18 +221,50 @@ public class Boid_Behavior_2D : MonoBehaviour
         }
     }
 
-
-
     void Move() {
-        transform.Translate(transform.forward*Time.deltaTime*speed,Space.World);
+        Seek(new Vector3(-10.0f,0.0f,-10.0f));
+        velocity += acceleration;
+        if (velocity.sqrMagnitude > sqrMaxSpeed) {
+            velocity.Normalize();
+            velocity *= maxSpeed;
+        }
+        transform.position += velocity*Time.deltaTime;
+
+        //transform.position += steeringForce*Time.deltaTime*speed;
+        //velocity += acceleration;
+        acceleration = Vector3.zero;
+
+
+        // Vector3 theMove = avoidMove*avoidWeight + cohereMove*cohereWeight + alignMove*alignWeight;
+
+        // if (theMove != Vector3.zero) {
+        //     transform.Translate(theMove*Time.deltaTime*speed,Space.World);
+        // }
     }
 
+    public void Seek(Vector3 target) {
+        Vector3 desired = target - this.transform.position;
+        desired.Normalize();
+        desired *= maxSpeed;
+        Vector3 steeringForce = desired - this.velocity;
 
+        ApplyForce(steeringForce);
+    }
+
+    public void ApplyForce(Vector3 inForce) {
+        acceleration += inForce;
+    }
 
     public void UpdateToggles(bool inAvoidance, bool inCohesion, bool inAlignment) {
-        avoidanceOn = inAvoidance;
-        cohesionOn = inCohesion;
+        avoidAndCohereOn = inAvoidance;
         alignmentOn = inAlignment;        
+    }
+
+    public void UpdateWeights(float inAvoidWeight, float inCohereWeight, float inAlignWeight) {
+        avoidWeight = inAvoidWeight;
+        cohereWeight = inCohereWeight;
+        alignWeight = inAlignWeight;
+
     }
 }
 

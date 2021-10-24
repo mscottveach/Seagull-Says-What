@@ -1489,6 +1489,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   a_boid: {fileID: 5563228109848870303, guid: 98c38f256db956c41875309f23ae38b2, type: 3}
   theBoids: []
+  alignWeight: 1
+  cohereWeight: 1
+  avoidWeight: 6
 --- !u!4 &1624326837
 Transform:
   m_ObjectHideFlags: 0
